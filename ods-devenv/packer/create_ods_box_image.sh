@@ -215,6 +215,7 @@ function create_ods_box_ami() {
             echo "... done: created placeholder not-valid.pub file ($pub_key)!"
         fi
 
+        export TMPDIR=/var/tmp
         time packer build -on-error=ask \
             -var "aws_access_key=${aws_access_key}" \
             -var "aws_secret_key=${aws_secret_key}" \
