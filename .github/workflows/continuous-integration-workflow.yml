@@ -81,7 +81,7 @@ jobs:
         run: |
           shellcheck sonarqube/*.sh
       -
-        name: Run tests
+        name: Build image and run tests
         run: |
           cd sonarqube && ./test.sh --sq-version=${{ matrix.version }} --sq-edition=${{ matrix.edition }}
 
