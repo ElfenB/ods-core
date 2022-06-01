@@ -2102,12 +2102,15 @@ function setup_jenkins_agents() {
         # oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait > "${log_folder}/${technology}_build.log" 2>&1 &
         # pids[${technologies_index}]=$!
 
+        docker_pull_image_into_cache "${technology}" "jenkins-agent-${technology}" "${ods_git_ref}"
         oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait | tee "${log_folder}/${technology}_build.log"
         if [ 0 -ne ${PIPESTATUS[0]} ]; then
             echo " "
             echo "ERROR: Could not build jenkins-agent for technology ${technology}"
             echo " "
             errors_building_jenkins_agent=$((errors_building_jenkins_agent++))
+        else
+            docker_push_image_to_remote "${technology}" "jenkins-agent-${technology}" "${ods_git_ref}"
         fi
     done
     popd
@@ -2166,6 +2169,72 @@ function setup_jenkins_agents() {
     echo "-------- ENDED Setting up jenkins agents ... ----------"
     echo "-------------------------------------------------------"
     echo " "
+}
+
+function docker_pull_image_into_cache() {
+    local img_technology="${1}"
+    local img_base_folder_name="${2}"
+    local img_ods_git_ref="${3}"
+    local ocp_config_folder="ocp-config"
+    local img_remote_url_cfg_file="${img_base_folder_name}/${ocp_config_folder}/docker_img_remote_url.cfg"
+    local img_docker_registry="docker-registry.default.svc:5000"
+    local img_docker_registry_prj="ods"
+    local img_local_tag="${img_docker_registry}/${img_docker_registry_prj}/${img_base_folder_name}:latest"
+    # Why not openshift ?
+
+    if [ ! -f ${img_remote_url_cfg_file} ]; then
+        echo "WARNING: Not found cfg file (${img_remote_url_cfg_file}) \
+                that tells us where is docker img to be used as cache for technology ${img_technology}."
+        return 0
+    fi
+
+    echo "INFO: Trying to pull docker image for technology ${img_technology}, base folder ${img_base_folder_name} and tag ${img_ods_git_ref}"
+    if [ echo "${img_ods_git_ref}" | grep -iq '^\s*[0-9]\+\.x\s*$' ]; then
+        sed -i "s@latest@${img_ods_git_ref}@g" ${img_remote_url_cfg_file}
+    fi
+
+    local img_remote_url="$(cat ${img_remote_url_cfg_file})"
+    if docker pull -q ${img_remote_url} ; then
+        docker tag ${img_remote_url} ${img_local_tag} || \
+            echo "Error tagging image ${img_remote_url} to ${img_local_tag}"
+
+        docker_login_token="$(oc whoami -t)"
+        docker login -p "${docker_login_token}" -u developer ${img_docker_registry}
+        docker push ${img_local_tag} || \
+            echo "Error pushing image to ${img_base_folder_name}:latest"
+    else
+        echo "WARNING: Could not get docker image at ${img_remote_url}"
+        echo "WARNING: No cache will be used to build image ${img_base_folder_name}:latest "
+    fi
+}
+
+function docker_push_image_to_remote() {
+    local img_technology="${1}"
+    local img_base_folder_name="${2}"
+    local img_ods_git_ref="${3}"
+    local ocp_config_folder="ocp-config"
+    local img_remote_url_cfg_file="${img_base_folder_name}/${ocp_config_folder}/docker_img_remote_url.cfg"
+    local img_docker_registry="docker-registry.default.svc:5000"
+    local img_docker_registry_prj="ods"
+    local img_local_tag="${img_docker_registry}/${img_docker_registry_prj}/${img_base_folder_name}:latest"
+
+
+    if [ ! -f ${img_remote_url_cfg_file} ]; then
+        echo "WARNING: Not found cfg file (${img_remote_url_cfg_file}) \
+                that tells us where is docker img to be used as cache for technology ${img_technology}"
+        return 0
+    fi
+
+    echo "INFO: Trying to push docker image for technology ${img_technology}, base folder ${img_base_folder_name} and tag ${img_ods_git_ref}"
+
+    local img_remote_url="$(cat ${img_remote_url_cfg_file})"
+    docker tag ${img_local_tag} ${img_remote_url} || \
+        echo "Error tagging image ${img_local_tag} to ${img_remote_url}"
+
+    docker_login_token="$(oc whoami -t)"
+    docker login -p "${docker_login_token}" -u developer ${img_docker_registry}
+    docker push ${img_remote_url} || \
+        echo "Error pushing image to ${img_remote_url}"
 }
 
 #######################################
