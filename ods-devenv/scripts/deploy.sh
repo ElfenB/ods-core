@@ -49,6 +49,8 @@ aqua_nexus_repository=leva-documentation
 
 # git ref to build ods box against
 ods_git_ref=
+registry_username=
+registry_token=
 
 # TODO add global openshift_user, openshift_password and use them when creating ods-core.env for improved configurability
 
@@ -160,16 +162,20 @@ function check_system_setup() {
     go get -u -x github.com/ericchiang/pup
     cp -vf "${HOME}/go/bin/pup" "${HOME}/bin/"
 
-    echo "Installing 'tests' folder go dependencies... "
+    echo " "
+    echo "INFO: Installing 'tests' folder go dependencies to fail early if they are not available"
+    echo " "
     pushd tests
     echo "go install github.com/jstemmer/go-junit-report"
     which go-junit-report || go install github.com/jstemmer/go-junit-report
 
-    go mod download | true
-    go get ./... | true
-    go list -f '{{ join .Imports "\n" }}' | true
-    go get -u -v -f all | true
+    # Try to get dependencies, but do not fail if not available at this point.
+    go mod download || echo "ERROR: Failed to execute go mod download "
+    go get -x ./... || echo "ERROR: Failed to execute go get -x -u ./... "
+    go list -u -m all || echo "ERROR: Failed to execute go list -u -m all "
     popd
+    echo " "
+    echo " "
 
     echo " "
     if ! systemctl status firewalld | grep -i running; then
@@ -1161,7 +1167,11 @@ function startup_atlassian_jira() {
     cp Dockerfile.template Dockerfile
     sed -i "s|__version__|${atlassian_jira_software_version}|g" Dockerfile
     sed -i "s|__base-image__|jira-software|g" Dockerfile
+
+    local atlassian_jira_remote_url="registry.hub.docker.com/victorpablosceruelo1981/ods-core"
+    docker_pull_image_into_cache_from_url "jira" "atlassian_jira" "${ods_git_ref}" "${atlassian_jira_remote_url}"
     docker image build --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
+    docker_push_image_to_remote_url "jira" "atlassian_jira" "${ods_git_ref}" "${atlassian_jira_remote_url}"
     popd
 
     echo "Assigning ownership of jira_data folder to jira user (id 2001)"
@@ -2174,13 +2184,7 @@ function setup_jenkins_agents() {
 function docker_pull_image_into_cache() {
     local img_technology="${1}"
     local img_base_folder_name="${2}"
-    local img_ods_git_ref="${3}"
-    local ocp_config_folder="ocp-config"
     local img_remote_url_cfg_file="${img_base_folder_name}/${ocp_config_folder}/docker_img_remote_url.cfg"
-    local img_docker_registry="docker-registry.default.svc:5000"
-    local img_docker_registry_prj="ods"
-    local img_local_tag="${img_docker_registry}/${img_docker_registry_prj}/${img_base_folder_name}:latest"
-    # Why not openshift ?
 
     if [ ! -f ${img_remote_url_cfg_file} ]; then
         echo "WARNING: Not found cfg file (${img_remote_url_cfg_file}) \
@@ -2188,12 +2192,29 @@ function docker_pull_image_into_cache() {
         return 0
     fi
 
-    echo "INFO: Trying to pull docker image for technology ${img_technology}, base folder ${img_base_folder_name} and tag ${img_ods_git_ref}"
     if [ echo "${img_ods_git_ref}" | grep -iq '^\s*[0-9]\+\.x\s*$' ]; then
         sed -i "s@latest@${img_ods_git_ref}@g" ${img_remote_url_cfg_file}
     fi
 
     local img_remote_url="$(cat ${img_remote_url_cfg_file})"
+
+    docker_pull_image_into_cache_from_url "${1}" "${2}" "${3}" "${img_remote_url}"
+
+}
+
+function docker_pull_image_into_cache_from_url() {
+    local img_technology="${1}"
+    local img_base_folder_name="${2}"
+    local img_ods_git_ref="${3}"
+    local img_remote_url="${4}:latest"
+
+    local ocp_config_folder="ocp-config"
+    local img_docker_registry="docker-registry.default.svc:5000"
+    local img_docker_registry_prj="ods"
+    local img_local_tag="${img_docker_registry}/${img_docker_registry_prj}/${img_base_folder_name}:latest"
+    # Why not openshift ?
+
+    echo "INFO: Trying to pull docker image for technology ${img_technology}, base folder ${img_base_folder_name} and tag ${img_ods_git_ref}"
     if docker pull -q ${img_remote_url} ; then
         docker tag ${img_remote_url} ${img_local_tag} || \
             echo "Error tagging image ${img_remote_url} to ${img_local_tag}"
@@ -2209,15 +2230,7 @@ function docker_pull_image_into_cache() {
 }
 
 function docker_push_image_to_remote() {
-    local img_technology="${1}"
-    local img_base_folder_name="${2}"
-    local img_ods_git_ref="${3}"
-    local ocp_config_folder="ocp-config"
     local img_remote_url_cfg_file="${img_base_folder_name}/${ocp_config_folder}/docker_img_remote_url.cfg"
-    local img_docker_registry="docker-registry.default.svc:5000"
-    local img_docker_registry_prj="ods"
-    local img_local_tag="${img_docker_registry}/${img_docker_registry_prj}/${img_base_folder_name}:latest"
-
 
     if [ ! -f ${img_remote_url_cfg_file} ]; then
         echo "WARNING: Not found cfg file (${img_remote_url_cfg_file}) \
@@ -2225,14 +2238,39 @@ function docker_push_image_to_remote() {
         return 0
     fi
 
-    echo "INFO: Trying to push docker image for technology ${img_technology}, base folder ${img_base_folder_name} and tag ${img_ods_git_ref}"
-
     local img_remote_url="$(cat ${img_remote_url_cfg_file})"
+    if [ -z "${img_remote_url}" ] || [ "" == "${img_remote_url}" ]; then
+        echo "Could not push image to remote registry because no url has been provided."
+        return 0
+    fi
+
+    docker_push_image_to_remote_url "${1}" "${2}" "${3}" "${img_remote_url}"
+}
+
+function docker_push_image_to_remote_url() {
+    local img_technology="${1}"
+    local img_base_folder_name="${2}"
+    local img_ods_git_ref="${3}"
+    local img_remote_url="${4}:latest"
+
+    local ocp_config_folder="ocp-config"
+    local img_docker_registry="docker-registry.default.svc:5000"
+    local img_docker_registry_prj="ods"
+    local img_local_tag="${img_docker_registry}/${img_docker_registry_prj}/${img_base_folder_name}:latest"
+
+    echo "INFO: Trying to push docker image for technology ${img_technology}, with name ${img_base_folder_name}, \
+            tag ${img_ods_git_ref} and url ${img_remote_url}"
+
+    docker pull -q ${img_local_tag} || \
+        echo "ERROR: Could noy get image generated in local registry."
+
     docker tag ${img_local_tag} ${img_remote_url} || \
         echo "Error tagging image ${img_local_tag} to ${img_remote_url}"
 
-    docker_login_token="$(oc whoami -t)"
-    docker login -p "${docker_login_token}" -u developer ${img_docker_registry}
+    local img_remote_docker_registry=$(echo "${img_remote_url}" | cut -d '/' -f 1)
+    echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
+    docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
+        echo "Error logging to remote registry."
     docker push ${img_remote_url} || \
         echo "Error pushing image to ${img_remote_url}"
 }
@@ -2434,8 +2472,10 @@ function basic_vm_setup() {
 while [[ "$#" -gt 0 ]]; do
   case $1 in
 
-  --branch) ods_git_ref="$2"; shift;;
-  --target) target="$2"; shift;;
+    --branch) ods_git_ref="$2"; shift;;
+    --target) target="$2"; shift;;
+    --registry_username) registry_username="$2"; shift;;
+    --registry_token) registry_token="$2"; shift;;
 
 esac; shift; done
 

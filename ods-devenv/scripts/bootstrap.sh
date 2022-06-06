@@ -2,11 +2,15 @@
 set -eux
 
 ods_git_ref=
+registry_username=
+registry_token=
 
 while [[ "$#" -gt 0 ]]; do
   case $1 in
 
-  --branch) ods_git_ref="$2"; shift;;
+    --branch) ods_git_ref="$2"; shift;;
+    --registry_username) registry_username="$2"; shift;;
+    --registry_token) registry_token="$2"; shift;;
 
 esac; shift; done
 
@@ -40,4 +44,5 @@ chmod u+x ./repos.sh
 ./repos.sh --git-ref "${ods_git_ref}" --verbose
 
 cd ods-core
-time bash ods-devenv/scripts/deploy.sh --branch "${ods_git_ref}" --target basic_vm_setup
+time bash ods-devenv/scripts/deploy.sh --branch "${ods_git_ref}" --target basic_vm_setup \
+    --registry_username "${registry_username}" --registry_token ${registry_token}

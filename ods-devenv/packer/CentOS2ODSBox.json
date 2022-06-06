@@ -85,7 +85,7 @@
         {
             "type": "shell",
             "script": "ods-devenv/scripts/bootstrap.sh",
-            "execute_command": "{{ .Path }}  --branch {{user `ods_branch`}}"
+            "execute_command": "{{ .Path }}  --branch {{user `ods_branch`}} --dockerhub_username {{user `dockerhub_username`}} --dockerhub_token {{user `dockerhub_token`}}"
         },
         {
             "type": "shell",

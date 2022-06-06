@@ -13,6 +13,9 @@ s3_upload_folder=image_upload
 output_directory=output-vmware-iso
 instance_type=m5ad.4xlarge
 
+registry_username=
+registry_token=
+
 dryrun=false
 
 while [[ "$#" -gt 0 ]]; do
@@ -44,6 +47,12 @@ while [[ "$#" -gt 0 ]]; do
 
     --pub-key) pub_key="$2"; shift;;
     --pub-key=*) pub_key="${1#*=}";;
+
+    --registry_username) registry_username="$2"; shift;;
+    --registry_username=*) registry_username="${1#*=}";;
+
+    --registry_token) registry_token="$2"; shift;;
+    --registry_token=*) registry_token="${1#*=}";;
 
     --target) target="$2"; shift;;
 
@@ -228,6 +237,8 @@ function create_ods_box_ami() {
             -var "instance_type=${instance_type}" \
             -var "pub_key=${pub_key}" \
             -var "ssh_private_key_file_path=${ssh_private_key_file_path}" \
+            -var "registry_username=${registry_username}" \
+            -var "registry_token=${registry_token}" \
             ods-devenv/packer/CentOS2ODSBox.json
     fi
 }
