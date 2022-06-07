@@ -2117,7 +2117,7 @@ function setup_jenkins_agents() {
         # oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait > "${log_folder}/${technology}_build.log" 2>&1 &
         # pids[${technologies_index}]=$!
 
-        docker_pull_image_into_cache "${technology}" "${ods_git_ref}"
+        docker_pull_image_into_cache "jenkins-agent-${technology}" "${ods_git_ref}" "${technology}"
         oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait | tee "${log_folder}/${technology}_build.log"
         if [ 0 -ne ${PIPESTATUS[0]} ]; then
             echo " "
@@ -2125,7 +2125,7 @@ function setup_jenkins_agents() {
             echo " "
             errors_building_jenkins_agent=$((errors_building_jenkins_agent++))
         else
-            docker_push_image_to_remote "${technology}" "${ods_git_ref}"
+            docker_push_image_to_remote "jenkins-agent-${technology}" "${ods_git_ref}" "${technology}"
         fi
     done
     popd
@@ -2187,8 +2187,10 @@ function setup_jenkins_agents() {
 }
 
 function docker_pull_image_into_cache() {
-    local img_base_folder_name="${1}"
+
+    local img_base_folder_name="${3}"
     local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
+
 
     if [ ! -f ${img_remote_tag_cfg_file} ]; then
         echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
@@ -2207,38 +2209,38 @@ function docker_pull_image_into_cache() {
 }
 
 function docker_pull_image_into_cache_from_url() {
-    local img_base_folder_name="${1}"
+    local img_local_name="${1}"
     local img_ods_git_ref="${2}"
     local img_remote_tag="${3}:latest"
-    local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_base_folder_name}:latest"
+    local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}:latest"
     local img_local_tag="${4:-${default_img_local_tag}}"
 
-    echo "INFO: Trying to pull docker image for technology ${img_base_folder_name}, base folder ${img_base_folder_name}, \
-            ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
+    echo "INFO: Trying to pull docker image named ${img_local_name} with ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
 
-    local img_remote_docker_registry=$(echo "${img_remote_tag}" | cut -d '/' -f 1)
-    echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
-    docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
-        echo "Error logging to remote registry."
+    # local img_remote_docker_registry=$(echo "${img_remote_tag}" | cut -d '/' -f 1)
+    # echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
+    # docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
+    #    echo "Error logging to remote registry."
 
-    if docker pull -q ${img_remote_tag} ; then
-        docker tag ${img_remote_tag} ${img_local_tag} || \
-            echo "Error tagging image ${img_remote_tag} to ${img_local_tag}"
+    local img_remote_tag_abbreviated=$(echo ${img_remote_tag} | sed 's@^\s*\([[:alnum:]\.]\)*/@@g')
+    echo "docker pull ${img_remote_tag_abbreviated} (for push: ${img_remote_tag})"
+    if docker pull -q ${img_remote_tag_abbreviated} ; then
+        docker tag ${img_remote_tag_abbreviated} ${img_local_tag} || \
+            echo "Error tagging image ${img_remote_tag_abbreviated} to ${img_local_tag}"
 
         docker_login_token="$(oc whoami -t)"
         docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
         docker push -q ${img_local_tag} || \
-            echo "Error pushing image to ${img_base_folder_name}:latest"
+            echo "Error pushing image to ${img_local_name}:latest"
     else
         echo "WARNING: Could not get docker image at ${img_remote_tag}"
-        echo "WARNING: No cache will be used to build image ${img_base_folder_name}:latest "
+        echo "WARNING: No cache will be used to build image ${img_local_name}:latest "
     fi
     echo " "
 }
 
 function docker_push_image_to_remote() {
-    local img_base_folder_name="${1}"
-    local img_ods_git_ref="${2}"
+    local img_base_folder_name="${3}"
     local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
 
     if [ ! -f ${img_remote_tag_cfg_file} ]; then
@@ -2257,15 +2259,14 @@ function docker_push_image_to_remote() {
 }
 
 function docker_push_image_to_remote_url() {
-    local img_base_folder_name="${1}"
+    local img_local_name="${1}"
     local img_ods_git_ref="${2}"
     local img_remote_tag="${3}:latest"
-    local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_base_folder_name}:latest"
+    local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}:latest"
     local img_local_tag="${4:-${default_img_local_tag}}"
 
-    echo "INFO: Trying to push docker image for technology ${img_base_folder_name}, with name ${img_base_folder_name}, \
-            ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
-    echo "INFO: Image might not be in local registry, and this fact can be a problem or not (we do not fail if not found). "
+    echo "INFO: Trying to push docker image named ${img_local_name} with ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
+    echo "INFO: Image might not be in local registry, and this fact can be a problem or not (we cannot determine whether we should fail if it fails). "
 
     docker pull -q ${img_local_tag} || \
         echo "ERROR: Could noy get image generated in local registry."
