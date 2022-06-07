@@ -50,7 +50,7 @@ aqua_nexus_repository=leva-documentation
 quickstarters_cfg_folder="ocp-config"
 boxes_docker_registry="docker-registry.default.svc:5000"
 boxes_docker_registry_prj="ods"
-
+remote_docker_registry="registry.hub.docker.com"
 
 # git ref to build ods box against
 ods_git_ref=
@@ -1173,10 +1173,11 @@ function startup_atlassian_jira() {
     sed -i "s|__version__|${atlassian_jira_software_version}|g" Dockerfile
     sed -i "s|__base-image__|jira-software|g" Dockerfile
 
-    local atlassian_jira_remote_url="registry.hub.docker.com/victorpablosceruelo1981/ods-jira-docker"
-    local atlassian_jira_local_url="ods-jira-docker:latest"
+    local atlassian_jira_remote_url="${remote_docker_registry}/${registry_username}/ods-jira-docker"
+    local atlassian_jira_local_url="${boxes_docker_registry}/${boxes_docker_registry_prj}/ods-jira-docker:latest"
     docker_pull_image_into_cache_from_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     docker image build --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
+    docker_push_image_to_local_registry "ods-jira-docker"
     docker_push_image_to_remote_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     popd
 
@@ -2187,23 +2188,23 @@ function setup_jenkins_agents() {
 }
 
 function docker_pull_image_into_cache() {
+    local img_local_name="${1}"
+    # local img_base_folder_name="${3}"
+    # local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
 
-    local img_base_folder_name="${3}"
-    local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
+    # if [ ! -f ${img_remote_tag_cfg_file} ]; then
+    #    echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
+    #            that tells us where is docker img to be used as cache for technology ${img_base_folder_name}."
+    #    return 0
+    #fi
 
+    #if [ echo "${img_ods_git_ref}" | grep -iq '^\s*[0-9]\+\.x\s*$' ]; then
+    #    sed -i "s@latest@${img_ods_git_ref}@g" ${img_remote_tag_cfg_file}
+    #fi
 
-    if [ ! -f ${img_remote_tag_cfg_file} ]; then
-        echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
-                that tells us where is docker img to be used as cache for technology ${img_base_folder_name}."
-        return 0
-    fi
+    # local img_remote_tag="$(cat ${img_remote_tag_cfg_file})"
 
-    if [ echo "${img_ods_git_ref}" | grep -iq '^\s*[0-9]\+\.x\s*$' ]; then
-        sed -i "s@latest@${img_ods_git_ref}@g" ${img_remote_tag_cfg_file}
-    fi
-
-    local img_remote_tag="$(cat ${img_remote_tag_cfg_file})"
-
+    local img_remote_tag="${remote_docker_registry}/${registry_username}/${img_local_name}"
     docker_pull_image_into_cache_from_url "${1}" "${2}" "${img_remote_tag}"
 
 }
@@ -2230,6 +2231,7 @@ function docker_pull_image_into_cache_from_url() {
 
         docker_login_token="$(oc whoami -t)"
         docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
+        echo "docker push -q ${img_local_tag}"
         docker push -q ${img_local_tag} || \
             echo "Error pushing image to ${img_local_name}:latest"
     else
@@ -2240,21 +2242,23 @@ function docker_pull_image_into_cache_from_url() {
 }
 
 function docker_push_image_to_remote() {
-    local img_base_folder_name="${3}"
-    local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
+    local img_local_name="${1}"
+    # local img_base_folder_name="${3}"
+    # local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
 
-    if [ ! -f ${img_remote_tag_cfg_file} ]; then
-        echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
-                that tells us where is docker img to be used as cache for technology ${img_base_folder_name}"
-        return 0
-    fi
+    # if [ ! -f ${img_remote_tag_cfg_file} ]; then
+    #    echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
+    #            that tells us where is docker img to be used as cache for technology ${img_base_folder_name}"
+    #    return 0
+    #fi
 
-    local img_remote_tag="$(cat ${img_remote_tag_cfg_file})"
-    if [ -z "${img_remote_tag}" ] || [ "" == "${img_remote_tag}" ]; then
-        echo "Could not push image to remote registry because no url has been provided."
-        return 0
-    fi
+    #local img_remote_tag="$(cat ${img_remote_tag_cfg_file})"
+    #if [ -z "${img_remote_tag}" ] || [ "" == "${img_remote_tag}" ]; then
+    #    echo "Could not push image to remote registry because no url has been provided."
+    #    return 0
+    #fi
 
+    local img_remote_tag="${remote_docker_registry}/${registry_username}/${img_local_name}"
     docker_push_image_to_remote_url "${1}" "${2}" "${img_remote_tag}"
 }
 
@@ -2268,8 +2272,9 @@ function docker_push_image_to_remote_url() {
     echo "INFO: Trying to push docker image named ${img_local_name} with ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
     echo "INFO: Image might not be in local registry, and this fact can be a problem or not (we cannot determine whether we should fail if it fails). "
 
+    echo "docker pull -q ${img_local_tag}"
     docker pull -q ${img_local_tag} || \
-        echo "ERROR: Could noy get image generated in local registry."
+        echo "ERROR: Could not get image ${img_local_tag}"
 
     docker tag ${img_local_tag} ${img_remote_tag} || \
         echo "Error tagging image ${img_local_tag} to ${img_remote_tag}"
@@ -2278,10 +2283,24 @@ function docker_push_image_to_remote_url() {
     echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
     docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
         echo "Error logging to remote registry."
-    echo "Pushing image... "
+    echo "docker push -q ${img_remote_tag} "
     docker push -q ${img_remote_tag} || \
         echo "Error pushing image to ${img_remote_tag}"
     echo " "
+}
+
+function docker_push_image_to_local_registry() {
+    local img_local_name="${1}:latest"
+    local img_local_registry_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}"
+
+    docker tag ${img_local_tag} ${img_local_registry_tag} || \
+        echo "Error tagging image ${img_local_tag} to ${img_local_registry_tag}"
+
+    docker_login_token="$(oc whoami -t)"
+    docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
+    echo "docker push -q ${img_local_registry_tag}"
+    docker push -q ${img_local_registry_tag} || \
+        echo "Error pushing image to ${img_local_registry_tag}"
 }
 
 #######################################
