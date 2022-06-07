@@ -1173,7 +1173,7 @@ function startup_atlassian_jira() {
     sed -i "s|__version__|${atlassian_jira_software_version}|g" Dockerfile
     sed -i "s|__base-image__|jira-software|g" Dockerfile
 
-    local atlassian_jira_remote_url="registry.hub.docker.com/victorpablosceruelo1981/ods-core"
+    local atlassian_jira_remote_url="registry.hub.docker.com/victorpablosceruelo1981/ods-jira-docker"
     local atlassian_jira_local_url="ods-jira-docker:latest"
     docker_pull_image_into_cache_from_url "jira" "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     docker image build --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
@@ -2262,6 +2262,7 @@ function docker_push_image_to_remote_url() {
 
     echo "INFO: Trying to push docker image for technology ${img_technology}, with name ${img_base_folder_name}, \
             ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
+    echo "INFO: Image might not be in local registry, and this fact can be a problem or not (we do not fail if not found). "
 
     docker pull -q ${img_local_tag} || \
         echo "ERROR: Could noy get image generated in local registry."
