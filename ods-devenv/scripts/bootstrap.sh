@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-set -eux
+set -eu
+
+echo ${0}
+echo $@
 
 ods_git_ref=
 registry_username=
@@ -14,6 +17,8 @@ while [[ "$#" -gt 0 ]]; do
 
 esac; shift; done
 
+registry_username="${registry_username:-null}"
+registry_token="${registry_token:-null}"
 ods_git_ref="${ods_git_ref:-master}"
 echo "bootstrap: Will build ods box against git-ref ${ods_git_ref}"
 
@@ -45,4 +50,4 @@ chmod u+x ./repos.sh
 
 cd ods-core
 time bash ods-devenv/scripts/deploy.sh --branch "${ods_git_ref}" --target basic_vm_setup \
-    --registry_username "${registry_username}" --registry_token ${registry_token}
+    --registry_username "${registry_username}" --registry_token "${registry_token}"

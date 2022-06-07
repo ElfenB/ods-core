@@ -226,6 +226,7 @@ function create_ods_box_ami() {
             cat ./ssh-tmp-key $pub_key
         fi
 
+        set +x
         time packer build -on-error=ask \
             -var "aws_access_key=${aws_access_key}" \
             -var "aws_secret_key=${aws_secret_key}" \
@@ -240,6 +241,7 @@ function create_ods_box_ami() {
             -var "registry_username=${registry_username}" \
             -var "registry_token=${registry_token}" \
             ods-devenv/packer/CentOS2ODSBox.json
+        set -x 
     fi
 }
 
