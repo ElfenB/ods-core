@@ -2217,18 +2217,25 @@ function docker_pull_image_into_cache_from_url() {
 
     echo "INFO: Trying to pull docker image for technology ${img_technology}, base folder ${img_base_folder_name}, \
             ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
+
+    local img_remote_docker_registry=$(echo "${img_remote_tag}" | cut -d '/' -f 1)
+    echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
+    docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
+        echo "Error logging to remote registry."
+
     if docker pull -q ${img_remote_tag} ; then
         docker tag ${img_remote_tag} ${img_local_tag} || \
             echo "Error tagging image ${img_remote_tag} to ${img_local_tag}"
 
         docker_login_token="$(oc whoami -t)"
         docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
-        docker push ${img_local_tag} || \
+        docker push -q ${img_local_tag} || \
             echo "Error pushing image to ${img_base_folder_name}:latest"
     else
         echo "WARNING: Could not get docker image at ${img_remote_tag}"
         echo "WARNING: No cache will be used to build image ${img_base_folder_name}:latest "
     fi
+    echo " "
 }
 
 function docker_push_image_to_remote() {
@@ -2274,8 +2281,9 @@ function docker_push_image_to_remote_url() {
     echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
     docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
         echo "Error logging to remote registry."
-    docker push ${img_remote_tag} || \
+    docker push -q ${img_remote_tag} || \
         echo "Error pushing image to ${img_remote_tag}"
+    echo " "
 }
 
 #######################################
