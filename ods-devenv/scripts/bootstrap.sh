@@ -20,17 +20,21 @@ esac; shift; done
 registry_username="${registry_username:-null}"
 registry_token="${registry_token:-null}"
 ods_git_ref="${ods_git_ref:-master}"
-echo "bootstrap: Will build ods box against git-ref ${ods_git_ref}"
 
 echo " "
-echo "--------------------------------------------------------------"
-echo "Show current ssh passwords. We need them to connect and debug."
-echo "--------------------------------------------------------------"
+echo "bootstrap.sh: Will build ods box against git-ref ${ods_git_ref}"
+echo "bootstrap.sh: Credentials for registry: ${registry_username} // ${registry_token} "
+
+echo " "
+echo "--------------------------------------------------------------------------------------------------------------"
+echo "bootstrap.sh: Showing current ssh passwords. They might be needed to connect to instance for debugging errors."
+echo "--------------------------------------------------------------------------------------------------------------"
 ls -1a ${HOME}/.ssh | grep -v "^\.\.*$" | \
     while read -r file; do echo " "; echo ${file}; echo "------------"; cat ${HOME}/.ssh/${file} || true; done
 echo " "
-echo "--------------------------------------------------------------"
+echo "--------------------------------------------------------------------------------------------------------------"
 echo " "
+sleep 2
 
 # install modern git version as required by repos.sh
 sudo yum update -y || true
@@ -44,10 +48,19 @@ sudo yum -y install git gitk iproute lsof xrdp tigervnc-server remmina firewalld
 opendevstack_dir="${HOME}/opendevstack"
 mkdir -pv "${opendevstack_dir}"
 cd "${opendevstack_dir}" || return
-curl -LO https://raw.githubusercontent.com/opendevstack/ods-core/${ods_git_ref}/scripts/repos.sh
+curl -sSLO https://raw.githubusercontent.com/opendevstack/ods-core/${ods_git_ref}/scripts/repos.sh
 chmod u+x ./repos.sh
 ./repos.sh --git-ref "${ods_git_ref}" --verbose
 
+echo " "
+echo "----------------------------------------------------"
+echo "bootstrap.sh: Deploy in instance the ODS environment"
+echo "----------------------------------------------------"
+echo " "
+sleep 2
+
+set +x
 cd ods-core
 time bash ods-devenv/scripts/deploy.sh --branch "${ods_git_ref}" --target basic_vm_setup \
     --registry_username "${registry_username}" --registry_token "${registry_token}"
+set -x

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -x
+
 aws_access_key=
 aws_secret_key=
 
@@ -222,8 +224,8 @@ function create_ods_box_ami() {
             echo "A public key was not provided... creating tmp ssh key ($pub_key)..."
             ssh-keygen -t rsa -n "openshift@odsbox.lan" -C "openshift@odsbox.lan" -m PEM -P "" -f "${ssh_private_key_file_path}"
             pwd
-            cat
             cat ./ssh-tmp-key $pub_key
+            sleep 2
         fi
 
         set +x
@@ -241,7 +243,7 @@ function create_ods_box_ami() {
             -var "registry_username=${registry_username}" \
             -var "registry_token=${registry_token}" \
             ods-devenv/packer/CentOS2ODSBox.json
-        set -x 
+        set -x
     fi
 }
 
