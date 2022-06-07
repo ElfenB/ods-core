@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -eu
-set -x
+set +x
 
 aws_access_key=
 aws_secret_key=
@@ -229,7 +229,7 @@ function create_ods_box_ami() {
             sleep 2
         fi
 
-        set +x
+        set -x
         time packer build -on-error=abort \
             -var "aws_access_key=${aws_access_key}" \
             -var "aws_secret_key=${aws_secret_key}" \
@@ -241,15 +241,15 @@ function create_ods_box_ami() {
             -var "instance_type=${instance_type}" \
             -var "pub_key=${pub_key}" \
             -var "ssh_private_key_file_path=${ssh_private_key_file_path}" \
-            -var "registry_username=${registry_username}" \
-            -var "registry_token=${registry_token}" \
+            -var "registryUsername=${registry_username}" \
+            -var "registryToken=${registry_token}" \
             ods-devenv/packer/CentOS2ODSBox.json
 
         if [ 0 -ne $? ]; then
             echo "Error running packer build. Aborting... "
             exit 1
         fi
-        set -x
+        set +x
     fi
 }
 
