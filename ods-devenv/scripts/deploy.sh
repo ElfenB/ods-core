@@ -2277,6 +2277,7 @@ function docker_push_image_to_remote_url() {
     echo "Login into remote registry (${img_remote_docker_registry}) with credentials ${registry_username} / ${registry_token} ..."
     docker login -p "${registry_token}" -u "${registry_username}" ${img_remote_docker_registry} || \
         echo "Error logging to remote registry."
+    echo "Pushing image... "
     docker push -q ${img_remote_tag} || \
         echo "Error pushing image to ${img_remote_tag}"
     echo " "
