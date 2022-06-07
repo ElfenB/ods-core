@@ -1175,9 +1175,9 @@ function startup_atlassian_jira() {
 
     local atlassian_jira_remote_url="registry.hub.docker.com/victorpablosceruelo1981/ods-jira-docker"
     local atlassian_jira_local_url="ods-jira-docker:latest"
-    docker_pull_image_into_cache_from_url "jira" "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
+    docker_pull_image_into_cache_from_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     docker image build --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
-    docker_push_image_to_remote_url "jira" "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
+    docker_push_image_to_remote_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     popd
 
     echo "Assigning ownership of jira_data folder to jira user (id 2001)"
@@ -2117,7 +2117,7 @@ function setup_jenkins_agents() {
         # oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait > "${log_folder}/${technology}_build.log" 2>&1 &
         # pids[${technologies_index}]=$!
 
-        docker_pull_image_into_cache "${technology}" "jenkins-agent-${technology}" "${ods_git_ref}"
+        docker_pull_image_into_cache "${technology}" "${ods_git_ref}"
         oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait | tee "${log_folder}/${technology}_build.log"
         if [ 0 -ne ${PIPESTATUS[0]} ]; then
             echo " "
@@ -2125,7 +2125,7 @@ function setup_jenkins_agents() {
             echo " "
             errors_building_jenkins_agent=$((errors_building_jenkins_agent++))
         else
-            docker_push_image_to_remote "${technology}" "jenkins-agent-${technology}" "${ods_git_ref}"
+            docker_push_image_to_remote "${technology}" "${ods_git_ref}"
         fi
     done
     popd
@@ -2187,13 +2187,12 @@ function setup_jenkins_agents() {
 }
 
 function docker_pull_image_into_cache() {
-    local img_technology="${1}"
-    local img_base_folder_name="${2}"
+    local img_base_folder_name="${1}"
     local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
 
     if [ ! -f ${img_remote_tag_cfg_file} ]; then
         echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
-                that tells us where is docker img to be used as cache for technology ${img_technology}."
+                that tells us where is docker img to be used as cache for technology ${img_base_folder_name}."
         return 0
     fi
 
@@ -2203,19 +2202,18 @@ function docker_pull_image_into_cache() {
 
     local img_remote_tag="$(cat ${img_remote_tag_cfg_file})"
 
-    docker_pull_image_into_cache_from_url "${1}" "${2}" "${3}" "${img_remote_tag}"
+    docker_pull_image_into_cache_from_url "${1}" "${2}" "${img_remote_tag}"
 
 }
 
 function docker_pull_image_into_cache_from_url() {
-    local img_technology="${1}"
-    local img_base_folder_name="${2}"
-    local img_ods_git_ref="${3}"
-    local img_remote_tag="${4}:latest"
+    local img_base_folder_name="${1}"
+    local img_ods_git_ref="${2}"
+    local img_remote_tag="${3}:latest"
     local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_base_folder_name}:latest"
-    local img_local_tag="${5:-${default_img_local_tag}}"
+    local img_local_tag="${4:-${default_img_local_tag}}"
 
-    echo "INFO: Trying to pull docker image for technology ${img_technology}, base folder ${img_base_folder_name}, \
+    echo "INFO: Trying to pull docker image for technology ${img_base_folder_name}, base folder ${img_base_folder_name}, \
             ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
 
     local img_remote_docker_registry=$(echo "${img_remote_tag}" | cut -d '/' -f 1)
@@ -2239,14 +2237,13 @@ function docker_pull_image_into_cache_from_url() {
 }
 
 function docker_push_image_to_remote() {
-    local img_technology="${1}"
-    local img_base_folder_name="${2}"
-    local img_ods_git_ref="${3}"
+    local img_base_folder_name="${1}"
+    local img_ods_git_ref="${2}"
     local img_remote_tag_cfg_file="${img_base_folder_name}/${quickstarters_cfg_folder}/docker_img_remote_tag.cfg"
 
     if [ ! -f ${img_remote_tag_cfg_file} ]; then
         echo "WARNING: Not found cfg file (${img_remote_tag_cfg_file}) \
-                that tells us where is docker img to be used as cache for technology ${img_technology}"
+                that tells us where is docker img to be used as cache for technology ${img_base_folder_name}"
         return 0
     fi
 
@@ -2256,18 +2253,17 @@ function docker_push_image_to_remote() {
         return 0
     fi
 
-    docker_push_image_to_remote_url "${1}" "${2}" "${3}" "${img_remote_tag}"
+    docker_push_image_to_remote_url "${1}" "${2}" "${img_remote_tag}"
 }
 
 function docker_push_image_to_remote_url() {
-    local img_technology="${1}"
-    local img_base_folder_name="${2}"
-    local img_ods_git_ref="${3}"
-    local img_remote_tag="${4}:latest"
+    local img_base_folder_name="${1}"
+    local img_ods_git_ref="${2}"
+    local img_remote_tag="${3}:latest"
     local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_base_folder_name}:latest"
-    local img_local_tag="${5:-${default_img_local_tag}}"
+    local img_local_tag="${4:-${default_img_local_tag}}"
 
-    echo "INFO: Trying to push docker image for technology ${img_technology}, with name ${img_base_folder_name}, \
+    echo "INFO: Trying to push docker image for technology ${img_base_folder_name}, with name ${img_base_folder_name}, \
             ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
     echo "INFO: Image might not be in local registry, and this fact can be a problem or not (we do not fail if not found). "
 
