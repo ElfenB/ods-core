@@ -53,7 +53,7 @@ objects:
     strategy:
       dockerStrategy:
         forcePull: true
-        noCache: true
+        noCache: false
         from:
           kind: DockerImage
           name: ${NEXUS_FROM_IMAGE}

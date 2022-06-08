@@ -2234,7 +2234,7 @@ function docker_pull_image_into_cache_from_url() {
         docker_login_token="$(oc whoami -t)"
         echo "docker login -p ${docker_login_token} -u ${docker_login_username} ${boxes_docker_registry}/${boxes_docker_registry_prj}"
         echo "${docker_login_token}" | docker login --password-stdin -u "${docker_login_username}" ${boxes_docker_registry}/${boxes_docker_registry_prj}
-        
+
         echo "docker push -q ${img_local_tag}"
         docker push -q ${img_local_tag} || \
             echo "Error pushing image to ${img_local_name}:latest"
