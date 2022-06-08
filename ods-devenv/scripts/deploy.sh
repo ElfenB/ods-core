@@ -48,7 +48,9 @@ aqua_url=http://aqua-web.aqua.svc.cluster.local:8080
 aqua_nexus_repository=leva-documentation
 
 quickstarters_cfg_folder="ocp-config"
-boxes_docker_registry="docker-registry.default.svc:5000"
+boxes_docker_registry_host="docker-registry.default.svc"
+boxes_docker_registry_port="5000"
+boxes_docker_registry_by_ip=
 boxes_docker_registry_prj="ods"
 remote_docker_registry="registry.hub.docker.com"
 
@@ -2214,7 +2216,8 @@ function docker_pull_image_into_cache_from_url() {
     local img_local_name="${1}"
     local img_ods_git_ref="${2}"
     local img_remote_tag="${3}:latest"
-    local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}:latest"
+    getBoxesDockerRegistryByIp
+    local default_img_local_tag="${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}/${img_local_name}:latest"
     local img_local_tag="${4:-${default_img_local_tag}}"
 
     echo "INFO: Trying to pull docker image named ${img_local_name} with ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
@@ -2232,8 +2235,8 @@ function docker_pull_image_into_cache_from_url() {
 
         docker_login_username="$(oc whoami)"
         docker_login_token="$(oc whoami -t)"
-        echo "docker login -p ${docker_login_token} -u ${docker_login_username} ${boxes_docker_registry}/${boxes_docker_registry_prj}"
-        echo "${docker_login_token}" | docker login --password-stdin -u "${docker_login_username}" ${boxes_docker_registry}/${boxes_docker_registry_prj}
+        echo "docker login --password-stdin -u ${docker_login_username} ${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}"
+        echo "${docker_login_token}" | docker login --password-stdin -u "${docker_login_username}" ${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}
 
         echo "docker push -q ${img_local_tag}"
         docker push -q ${img_local_tag} || \
@@ -2270,7 +2273,8 @@ function docker_push_image_to_remote_url() {
     local img_local_name="${1}"
     local img_ods_git_ref="${2}"
     local img_remote_tag="${3}:latest"
-    local default_img_local_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}:latest"
+    getBoxesDockerRegistryByIp
+    local default_img_local_tag="${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}/${img_local_name}:latest"
     local img_local_tag="${4:-${default_img_local_tag}}"
 
     echo "INFO: Trying to push docker image named ${img_local_name} with ods tag ${img_ods_git_ref}, local tag ${img_local_tag} and remote tag ${img_remote_tag}"
@@ -2295,16 +2299,23 @@ function docker_push_image_to_remote_url() {
 
 function docker_push_image_to_local_registry() {
     local img_local_name="${1}:latest"
-    local img_local_registry_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}"
+    getBoxesDockerRegistryByIp
+    local img_local_registry_tag="${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}/${img_local_name}"
 
     docker tag ${img_local_name} ${img_local_registry_tag} || \
         echo "Error tagging image ${img_local_name} to ${img_local_registry_tag}"
 
+    docker_login_username="$(oc whoami)"
     docker_login_token="$(oc whoami -t)"
-    docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
+    echo "docker login --password-stdin -u ${docker_login_username} ${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}"
+    echo "${docker_login_token}" | docker login --password-stdin -u ${docker_login_username} ${boxes_docker_registry_by_ip}
     echo "docker push -q ${img_local_registry_tag}"
     docker push -q ${img_local_registry_tag} || \
         echo "Error pushing image to ${img_local_registry_tag}"
+}
+
+function getBoxesDockerRegistryByIp() {
+    boxes_docker_registry_by_ip="$(grep ${boxes_docker_registry_host} /etc/hosts | cut -d ' ' -f 1):${boxes_docker_registry_port}"
 }
 
 #######################################
