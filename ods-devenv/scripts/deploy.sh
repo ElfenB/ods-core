@@ -2293,8 +2293,8 @@ function docker_push_image_to_local_registry() {
     local img_local_name="${1}:latest"
     local img_local_registry_tag="${boxes_docker_registry}/${boxes_docker_registry_prj}/${img_local_name}"
 
-    docker tag ${img_local_tag} ${img_local_registry_tag} || \
-        echo "Error tagging image ${img_local_tag} to ${img_local_registry_tag}"
+    docker tag ${img_local_name} ${img_local_registry_tag} || \
+        echo "Error tagging image ${img_local_name} to ${img_local_registry_tag}"
 
     docker_login_token="$(oc whoami -t)"
     docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
