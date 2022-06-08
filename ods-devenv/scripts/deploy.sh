@@ -884,7 +884,8 @@ function fix_atlassian_mysql_loaded_data_checks() {
         SELECT TABLE_NAME, COLUMN_NAME, COLLATION_NAME FROM INFORMATION_SCHEMA.COLUMNS;\"" \
         > /tmp/fix_atlassian_mysql_loaded_data_checks.txt
 
-    grep -i jiradb /tmp/fix_atlassian_mysql_loaded_data_checks.txt
+    echo "JiraDB tables not with utf8mb4_bin collation (they still need to be fixed): "
+    grep -i '\s*jiradb' /tmp/fix_atlassian_mysql_loaded_data_checks.txt | grep -v 'jiradb.*utf8mb4_bin'
 
     echo " "
     echo "fix_atlassian_mysql_loaded_data_checks ENDS"
@@ -2229,8 +2230,11 @@ function docker_pull_image_into_cache_from_url() {
         docker tag ${img_remote_tag_abbreviated} ${img_local_tag} || \
             echo "Error tagging image ${img_remote_tag_abbreviated} to ${img_local_tag}"
 
+        docker_login_username="$(oc whoami)"
         docker_login_token="$(oc whoami -t)"
-        docker login -p "${docker_login_token}" -u developer ${boxes_docker_registry}
+        echo "docker login -p ${docker_login_token} -u ${docker_login_username} ${boxes_docker_registry}/${boxes_docker_registry_prj}"
+        echo "${docker_login_token}" | docker login --password-stdin -u "${docker_login_username}" ${boxes_docker_registry}/${boxes_docker_registry_prj}
+        
         echo "docker push -q ${img_local_tag}"
         docker push -q ${img_local_tag} || \
             echo "Error pushing image to ${img_local_name}:latest"
