@@ -1177,7 +1177,8 @@ function startup_atlassian_jira() {
     sed -i "s|__base-image__|jira-software|g" Dockerfile
 
     local atlassian_jira_remote_url="${remote_docker_registry}/${registry_username}/ods-jira-docker"
-    local atlassian_jira_local_url="${boxes_docker_registry}/${boxes_docker_registry_prj}/ods-jira-docker:latest"
+    getBoxesDockerRegistryByIp
+    local atlassian_jira_local_url="${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}/ods-jira-docker:latest"
     docker_pull_image_into_cache_from_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     docker image build --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
     docker_push_image_to_local_registry "ods-jira-docker"
