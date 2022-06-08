@@ -885,7 +885,7 @@ function fix_atlassian_mysql_loaded_data_checks() {
         > /tmp/fix_atlassian_mysql_loaded_data_checks.txt
 
     echo "JiraDB tables not with utf8mb4_bin collation (they still need to be fixed): "
-    grep -i '\s*jiradb' /tmp/fix_atlassian_mysql_loaded_data_checks.txt | grep -v 'jiradb.*utf8mb4_bin'
+    grep -i '\s*jiradb' /tmp/fix_atlassian_mysql_loaded_data_checks.txt | grep -v 'jiradb.*utf8mb4_bin' || echo "No tables need fixes."
 
     echo " "
     echo "fix_atlassian_mysql_loaded_data_checks ENDS"
