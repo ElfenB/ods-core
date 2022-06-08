@@ -138,7 +138,6 @@ objects:
     strategy:
       dockerStrategy:
         forcePull: true
-        noCache: false
         buildArgs:
           - name: sonarVersion
             value: ${SONAR_VERSION}

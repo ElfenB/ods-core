@@ -99,7 +99,6 @@ objects:
       type: Docker
       dockerStrategy:
         forcePull: true
-        noCache: false
         env:
           - name: APP_DNS
             value: ${APP_DNS}
@@ -151,7 +150,6 @@ objects:
     strategy:
       dockerStrategy:
         forcePull: true
-        noCache: false
         env:
           - name: APP_DNS
             value: ${APP_DNS}
@@ -196,7 +194,6 @@ objects:
     strategy:
       dockerStrategy:
         forcePull: true
-        noCache: false
         buildArgs:
           - name: allowedExternalProjects
             value: ${ODS_BITBUCKET_PROJECT}

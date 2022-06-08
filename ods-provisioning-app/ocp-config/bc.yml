@@ -53,7 +53,6 @@ objects:
       type: Docker
       dockerStrategy:
         forcePull: true
-        noCache: false
         env:
           - name: APP_DNS
             value: ${APP_DNS}

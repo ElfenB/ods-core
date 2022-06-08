@@ -1180,7 +1180,9 @@ function startup_atlassian_jira() {
     getBoxesDockerRegistryByIp
     local atlassian_jira_local_url="${boxes_docker_registry_by_ip}/${boxes_docker_registry_prj}/ods-jira-docker:latest"
     docker_pull_image_into_cache_from_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
-    docker image build --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
+    export DOCKER_BUILDKIT=1
+    docker image build --cache-from "${atlassian_jira_local_url}" --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg APP_DNS="docker-registry-default.ocp.odsbox.lan" -t ods-jira-docker:latest .
     docker_push_image_to_local_registry "ods-jira-docker"
     docker_push_image_to_remote_url "ods-jira-docker" "${ods_git_ref}" "${atlassian_jira_remote_url}" "${atlassian_jira_local_url}"
     popd
@@ -2123,7 +2125,9 @@ function setup_jenkins_agents() {
         # pids[${technologies_index}]=$!
 
         docker_pull_image_into_cache "jenkins-agent-${technology}" "${ods_git_ref}" "${technology}"
-        oc start-build -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait | tee "${log_folder}/${technology}_build.log"
+        export DOCKER_BUILDKIT=1
+        oc start-build --no-cache=false -n "${NAMESPACE}" "jenkins-agent-${technology}" --follow --wait \
+            | tee "${log_folder}/${technology}_build.log"
         if [ 0 -ne ${PIPESTATUS[0]} ]; then
             echo " "
             echo "ERROR: Could not build jenkins-agent for technology ${technology}"
