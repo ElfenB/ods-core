@@ -149,6 +149,11 @@ func executeProvision(t *testing.T, step TestStep, testdataPath string, tmplData
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = deleteOpenShiftResources(utils.PROJECT_NAME, step.ComponentID, utils.PROJECT_NAME_TEST)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	branch := config["ODS_GIT_REF"]
 	if len(step.ProvisionParams.Branch) > 0 {
 		branch = renderTemplate(t, step.ProvisionParams.Branch, tmplData)
